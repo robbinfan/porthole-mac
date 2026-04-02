@@ -5457,6 +5457,25 @@ struct ClosedBrowserPanelRestoreSnapshot {
     let fallbackAnchorPaneId: UUID?
 }
 
+struct GitLabMRStatus: Equatable {
+    let iid: Int
+    let status: GitLabMRStatusType
+    let pipelineStatus: GitLabPipelineStatusType?
+
+    enum GitLabMRStatusType: String {
+        case open, merged, closed
+    }
+
+    enum GitLabPipelineStatusType: String {
+        case success, failed, running, pending
+    }
+}
+
+struct AgentIndicator: Equatable {
+    let type: AgentType
+    let status: AgentStatus
+}
+
 /// Workspace represents a sidebar tab.
 /// Each workspace contains one BonsplitController that manages split panes and nested surfaces.
 @MainActor
@@ -5562,6 +5581,9 @@ final class Workspace: Identifiable, ObservableObject {
     @Published var remoteHeartbeatCount: Int = 0
     @Published var remoteLastHeartbeatAt: Date?
     @Published var listeningPorts: [Int] = []
+    // Porthole extensions
+    @Published var gitlabMRStatus: GitLabMRStatus?
+    @Published var agentIndicator: AgentIndicator?
     @Published private(set) var activeRemoteTerminalSessionCount: Int = 0
     var surfaceTTYNames: [UUID: String] = [:]
     private var remoteSessionController: WorkspaceRemoteSessionController?
