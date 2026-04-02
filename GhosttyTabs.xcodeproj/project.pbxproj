@@ -37,6 +37,13 @@
 		A5007420 /* BrowserPopupWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5007421 /* BrowserPopupWindowController.swift */; };
 		A5001420 /* MarkdownPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001418 /* MarkdownPanel.swift */; };
 		A5001421 /* MarkdownPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001419 /* MarkdownPanelView.swift */; };
+			6B167D52116DAA58B2D8A2A1 /* GitLabPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C52F871D9E932CB787F86EF /* GitLabPanel.swift */; };
+			4C9D4FDFDEED89B0966AC2C9 /* GitLabPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A8B20BE59F431642E8D9165 /* GitLabPanelView.swift */; };
+			7B876423518AAD2EABBABAFC /* KanbanPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C936E4A3CBB83E7579537C /* KanbanPanel.swift */; };
+			C4999BE6D701141266ED150E /* KanbanPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFA05E57F47C63DE1D90FA2 /* KanbanPanelView.swift */; };
+			C4A78A622E8C0E418434E1A9 /* AgentDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8227FFCD90322A971E9CC04C /* AgentDetector.swift */; };
+			F6821A18A3455A8075312FFD /* GitLabConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E2B923AA7A1636EF2552A8 /* GitLabConfig.swift */; };
+			F02B33F323B1D7203D5622B2 /* GitLabSidebarBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7A7871E2A190371330B03D /* GitLabSidebarBridge.swift */; };
 		A5001290 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = A5001291 /* MarkdownUI */; };
 		A5001405 /* PanelContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001415 /* PanelContentView.swift */; };
 		A5001406 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001416 /* Workspace.swift */; };
@@ -238,6 +245,13 @@
 		A5001415 /* PanelContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/PanelContentView.swift; sourceTree = "<group>"; };
 		A5001418 /* MarkdownPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/MarkdownPanel.swift; sourceTree = "<group>"; };
 		A5001419 /* MarkdownPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/MarkdownPanelView.swift; sourceTree = "<group>"; };
+		8C52F871D9E932CB787F86EF /* GitLabPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/GitLabPanel.swift; sourceTree = "<group>"; };
+		1A8B20BE59F431642E8D9165 /* GitLabPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/GitLabPanelView.swift; sourceTree = "<group>"; };
+		D4C936E4A3CBB83E7579537C /* KanbanPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/KanbanPanel.swift; sourceTree = "<group>"; };
+		FDFA05E57F47C63DE1D90FA2 /* KanbanPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/KanbanPanelView.swift; sourceTree = "<group>"; };
+		8227FFCD90322A971E9CC04C /* AgentDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/AgentDetector.swift; sourceTree = "<group>"; };
+		A8E2B923AA7A1636EF2552A8 /* GitLabConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitLab/GitLabConfig.swift; sourceTree = "<group>"; };
+		0C7A7871E2A190371330B03D /* GitLabSidebarBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitLab/GitLabSidebarBridge.swift; sourceTree = "<group>"; };
 		A5001416 /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		A5001417 /* WorkspaceContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceContentView.swift; sourceTree = "<group>"; };
 		A5001090 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -489,6 +503,13 @@
 				A5007421 /* BrowserPopupWindowController.swift */,
 				A5001418 /* MarkdownPanel.swift */,
 				A5001419 /* MarkdownPanelView.swift */,
+					8C52F871D9E932CB787F86EF /* GitLabPanel.swift */,
+					1A8B20BE59F431642E8D9165 /* GitLabPanelView.swift */,
+					D4C936E4A3CBB83E7579537C /* KanbanPanel.swift */,
+					FDFA05E57F47C63DE1D90FA2 /* KanbanPanelView.swift */,
+					8227FFCD90322A971E9CC04C /* AgentDetector.swift */,
+					A8E2B923AA7A1636EF2552A8 /* GitLabConfig.swift */,
+					0C7A7871E2A190371330B03D /* GitLabSidebarBridge.swift */,
 				A5001510 /* CmuxWebView.swift */,
 				A5001415 /* PanelContentView.swift */,
 				A5001211 /* UpdateController.swift */,
@@ -811,6 +832,13 @@
 				A5007420 /* BrowserPopupWindowController.swift in Sources */,
 				A5001420 /* MarkdownPanel.swift in Sources */,
 				A5001421 /* MarkdownPanelView.swift in Sources */,
+					6B167D52116DAA58B2D8A2A1 /* GitLabPanel.swift in Sources */,
+					4C9D4FDFDEED89B0966AC2C9 /* GitLabPanelView.swift in Sources */,
+					7B876423518AAD2EABBABAFC /* KanbanPanel.swift in Sources */,
+					C4999BE6D701141266ED150E /* KanbanPanelView.swift in Sources */,
+					C4A78A622E8C0E418434E1A9 /* AgentDetector.swift in Sources */,
+					F6821A18A3455A8075312FFD /* GitLabConfig.swift in Sources */,
+					F02B33F323B1D7203D5622B2 /* GitLabSidebarBridge.swift in Sources */,
 				A5001500 /* CmuxWebView.swift in Sources */,
 				A5001405 /* PanelContentView.swift in Sources */,
 				A5001201 /* UpdateController.swift in Sources */,

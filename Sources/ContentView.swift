@@ -5071,6 +5071,10 @@ struct ContentView: View {
             return String(localized: "commandPalette.kind.browser", defaultValue: "Browser")
         case .markdown:
             return String(localized: "commandPalette.kind.markdown", defaultValue: "Markdown")
+        case .gitlab:
+            return "GitLab"
+        case .kanban:
+            return "Agents"
         }
     }
 
@@ -5082,6 +5086,10 @@ struct ContentView: View {
             return ["browser", "web", "page"]
         case .markdown:
             return ["markdown", "note", "preview"]
+        case .gitlab:
+            return ["gitlab", "merge", "pipeline", "mr"]
+        case .kanban:
+            return ["kanban", "agent", "status", "claude", "codex"]
         }
     }
 

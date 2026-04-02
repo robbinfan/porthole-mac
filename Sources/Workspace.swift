@@ -468,6 +468,9 @@ extension Workspace {
             terminalSnapshot = nil
             browserSnapshot = nil
             markdownSnapshot = SessionMarkdownPanelSnapshot(filePath: markdownPanel.filePath)
+        case .gitlab, .kanban:
+            // GitLab and Kanban panels don't persist session state
+            return nil
         }
 
         return SessionPanelSnapshot(
@@ -6248,6 +6251,10 @@ final class Workspace: Identifiable, ObservableObject {
             return SurfaceKind.browser
         case .markdown:
             return SurfaceKind.markdown
+        case .gitlab:
+            return SurfaceKind.gitlab
+        case .kanban:
+            return SurfaceKind.kanban
         }
     }
 
