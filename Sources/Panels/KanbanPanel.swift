@@ -2,6 +2,23 @@ import AppKit
 import WebKit
 import Combine
 
+/// Represents a detected agent from a terminal panel
+struct DetectedAgent: Codable {
+    let panelId: String
+    let paneId: String?
+    let title: String
+    let agentType: String
+    let status: String
+
+    enum CodingKeys: String, CodingKey {
+        case panelId = "panel_id"
+        case paneId = "pane_id"
+        case title
+        case agentType = "agent_type"
+        case status
+    }
+}
+
 @MainActor
 final class KanbanPanel: NSObject, Panel, ObservableObject {
     let id = UUID()
@@ -14,6 +31,10 @@ final class KanbanPanel: NSObject, Panel, ObservableObject {
     private var pollTimer: Timer?
     private let pollInterval: TimeInterval = 3.0
 
+    /// Closure provided by Workspace to scan terminal panels for agent status.
+    /// Returns an array of DetectedAgent structs.
+    var agentScanner: (() -> [DetectedAgent])?
+
     override init() {
         super.init()
         setupWebView()
@@ -24,7 +45,6 @@ final class KanbanPanel: NSObject, Panel, ObservableObject {
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
-        // Add message handler for Focus/Stop actions from JS
         let handler = KanbanMessageHandler(panel: self)
         config.userContentController.add(handler, name: "cmux")
 
@@ -54,9 +74,13 @@ final class KanbanPanel: NSObject, Panel, ObservableObject {
     }
 
     func detectAgents() {
-        // Stub — will be wired to real terminal surfaces in Task 15
-        // For now, push empty array to keep frontend alive
-        pushAgentState("[]")
+        let agents = agentScanner?() ?? []
+        guard let jsonData = try? JSONEncoder().encode(agents),
+              let jsonString = String(data: jsonData, encoding: .utf8) else {
+            pushAgentState("[]")
+            return
+        }
+        pushAgentState(jsonString)
     }
 
     func pushAgentState(_ json: String) {
@@ -94,18 +118,31 @@ class KanbanMessageHandler: NSObject, WKScriptMessageHandler {
     ) {
         guard let body = message.body as? [String: String],
               let action = body["action"],
-              let paneId = body["paneId"] else { return }
+              let panelIdStr = body["paneId"],
+              let panelId = UUID(uuidString: panelIdStr) else { return }
 
-        // Will be wired to TerminalController in Task 15
-        switch action {
-        case "focus-pane":
-            // TerminalController.shared.focusSurface(UUID(uuidString: paneId))
-            break
-        case "send-key":
-            // TerminalController.shared.sendKey(to: UUID(uuidString: paneId), key: "C-c")
-            break
-        default:
-            break
+        Task { @MainActor in
+            switch action {
+            case "focus-pane":
+                NotificationCenter.default.post(
+                    name: .kanbanFocusPanel,
+                    object: nil,
+                    userInfo: ["panelId": panelId]
+                )
+            case "stop-agent":
+                NotificationCenter.default.post(
+                    name: .kanbanInterruptPanel,
+                    object: nil,
+                    userInfo: ["panelId": panelId]
+                )
+            default:
+                break
+            }
         }
     }
+}
+
+extension Notification.Name {
+    static let kanbanFocusPanel = Notification.Name("kanbanFocusPanel")
+    static let kanbanInterruptPanel = Notification.Name("kanbanInterruptPanel")
 }

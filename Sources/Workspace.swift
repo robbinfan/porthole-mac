@@ -658,6 +658,18 @@ extension Workspace {
             }
             applySessionPanelMetadata(snapshot, toPanelId: markdownPanel.id)
             return markdownPanel.id
+        case .gitlab:
+            guard let gitlabPanel = newGitLabSurface(inPane: paneId, focus: false) else {
+                return nil
+            }
+            applySessionPanelMetadata(snapshot, toPanelId: gitlabPanel.id)
+            return gitlabPanel.id
+        case .kanban:
+            guard let kanbanPanel = newKanbanSurface(inPane: paneId, focus: false) else {
+                return nil
+            }
+            applySessionPanelMetadata(snapshot, toPanelId: kanbanPanel.id)
+            return kanbanPanel.id
         }
     }
 
@@ -870,6 +882,20 @@ extension Workspace {
                 if let name = surface.name { setPanelCustomTitle(panelId: panel.id, title: name) }
                 if surface.focus == true { focusPanelId = panel.id }
             }
+
+        case .gitlab:
+            if let panel = newGitLabSurface(inPane: paneId, focus: false) {
+                _ = closePanel(panelId, force: true)
+                if let name = surface.name { setPanelCustomTitle(panelId: panel.id, title: name) }
+                if surface.focus == true { focusPanelId = panel.id }
+            }
+
+        case .kanban:
+            if let panel = newKanbanSurface(inPane: paneId, focus: false) {
+                _ = closePanel(panelId, force: true)
+                if let name = surface.name { setPanelCustomTitle(panelId: panel.id, title: name) }
+                if surface.focus == true { focusPanelId = panel.id }
+            }
         }
     }
 
@@ -896,6 +922,18 @@ extension Workspace {
         case .browser:
             let url = surface.url.flatMap { URL(string: $0) }
             if let panel = newBrowserSurface(inPane: paneId, url: url, focus: false) {
+                if let name = surface.name { setPanelCustomTitle(panelId: panel.id, title: name) }
+                if surface.focus == true { focusPanelId = panel.id }
+            }
+
+        case .gitlab:
+            if let panel = newGitLabSurface(inPane: paneId, focus: false) {
+                if let name = surface.name { setPanelCustomTitle(panelId: panel.id, title: name) }
+                if surface.focus == true { focusPanelId = panel.id }
+            }
+
+        case .kanban:
+            if let panel = newKanbanSurface(inPane: paneId, focus: false) {
                 if let name = surface.name { setPanelCustomTitle(panelId: panel.id, title: name) }
                 if surface.focus == true { focusPanelId = panel.id }
             }
@@ -5699,6 +5737,8 @@ final class Workspace: Identifiable, ObservableObject {
         static let terminal = "terminal"
         static let browser = "browser"
         static let markdown = "markdown"
+        static let gitlab = "gitlab"
+        static let kanban = "kanban"
     }
 
     enum PanelShellActivityState: String {
@@ -5969,6 +6009,7 @@ final class Workspace: Identifiable, ObservableObject {
     private var debugLastDidMoveTabTimestamp: TimeInterval = 0
     private var debugDidMoveTabEventCount: UInt64 = 0
 #endif
+    private var kanbanNotificationObservers: [NSObjectProtocol] = []
     private var layoutFollowUpObservers: [NSObjectProtocol] = []
     private var layoutFollowUpPanelsCancellable: AnyCancellable?
     private var layoutFollowUpTimeoutWorkItem: DispatchWorkItem?
@@ -8016,6 +8057,153 @@ final class Workspace: Identifiable, ObservableObject {
         return markdownPanel
     }
 
+    func newGitLabSurface(
+        inPane paneId: PaneID,
+        focus: Bool? = nil
+    ) -> GitLabPanel? {
+        let shouldFocusNewTab = focus ?? (bonsplitController.focusedPaneId == paneId)
+        let previousFocusedPanelId = focusedPanelId
+        let previousHostedView = focusedTerminalPanel?.hostedView
+
+        let gitlabPanel = GitLabPanel()
+        panels[gitlabPanel.id] = gitlabPanel
+        panelTitles[gitlabPanel.id] = gitlabPanel.displayTitle
+
+        guard let newTabId = bonsplitController.createTab(
+            title: gitlabPanel.displayTitle,
+            icon: gitlabPanel.displayIcon,
+            kind: SurfaceKind.gitlab,
+            isDirty: gitlabPanel.isDirty,
+            isLoading: false,
+            isPinned: false,
+            inPane: paneId
+        ) else {
+            panels.removeValue(forKey: gitlabPanel.id)
+            panelTitles.removeValue(forKey: gitlabPanel.id)
+            return nil
+        }
+
+        surfaceIdToPanelId[newTabId] = gitlabPanel.id
+        if shouldFocusNewTab {
+            bonsplitController.focusPane(paneId)
+            bonsplitController.selectTab(newTabId)
+            applyTabSelection(tabId: newTabId, inPane: paneId)
+        } else {
+            preserveFocusAfterNonFocusSplit(
+                preferredPanelId: previousFocusedPanelId,
+                splitPanelId: gitlabPanel.id,
+                previousHostedView: previousHostedView
+            )
+        }
+
+        return gitlabPanel
+    }
+
+    func newKanbanSurface(
+        inPane paneId: PaneID,
+        focus: Bool? = nil
+    ) -> KanbanPanel? {
+        let shouldFocusNewTab = focus ?? (bonsplitController.focusedPaneId == paneId)
+        let previousFocusedPanelId = focusedPanelId
+        let previousHostedView = focusedTerminalPanel?.hostedView
+
+        let kanbanPanel = KanbanPanel()
+        kanbanPanel.agentScanner = { [weak self] in
+            self?.scanTerminalPanelsForAgents() ?? []
+        }
+        panels[kanbanPanel.id] = kanbanPanel
+        panelTitles[kanbanPanel.id] = kanbanPanel.displayTitle
+
+        guard let newTabId = bonsplitController.createTab(
+            title: kanbanPanel.displayTitle,
+            icon: kanbanPanel.displayIcon,
+            kind: SurfaceKind.kanban,
+            isDirty: kanbanPanel.isDirty,
+            isLoading: false,
+            isPinned: false,
+            inPane: paneId
+        ) else {
+            panels.removeValue(forKey: kanbanPanel.id)
+            panelTitles.removeValue(forKey: kanbanPanel.id)
+            return nil
+        }
+
+        surfaceIdToPanelId[newTabId] = kanbanPanel.id
+        if shouldFocusNewTab {
+            bonsplitController.focusPane(paneId)
+            bonsplitController.selectTab(newTabId)
+            applyTabSelection(tabId: newTabId, inPane: paneId)
+        } else {
+            preserveFocusAfterNonFocusSplit(
+                preferredPanelId: previousFocusedPanelId,
+                splitPanelId: kanbanPanel.id,
+                previousHostedView: previousHostedView
+            )
+        }
+
+        // Set up notification observers for kanban actions (idempotent — only once)
+        if kanbanNotificationObservers.isEmpty {
+            kanbanNotificationObservers.append(
+                NotificationCenter.default.addObserver(
+                    forName: .kanbanFocusPanel, object: nil, queue: .main
+                ) { [weak self] notification in
+                    guard let panelId = notification.userInfo?["panelId"] as? UUID else { return }
+                    self?.focusPanel(panelId)
+                }
+            )
+            kanbanNotificationObservers.append(
+                NotificationCenter.default.addObserver(
+                    forName: .kanbanInterruptPanel, object: nil, queue: .main
+                ) { [weak self] notification in
+                    guard let panelId = notification.userInfo?["panelId"] as? UUID,
+                          let terminalPanel = self?.panels[panelId] as? TerminalPanel else { return }
+                    // Send Ctrl-C (ETX byte) to interrupt the running process
+                    terminalPanel.sendInput("\u{03}")
+                }
+            )
+        }
+
+        return kanbanPanel
+    }
+
+    /// Scan all terminal panels in this workspace and return agent detection results.
+    /// Used by KanbanPanel to populate its board with real terminal data.
+    private func scanTerminalPanelsForAgents() -> [DetectedAgent] {
+        var agents: [DetectedAgent] = []
+        for (_, panel) in panels {
+            guard let terminalPanel = panel as? TerminalPanel else { continue }
+
+            let title = terminalPanel.displayTitle
+            let agentType = AgentDetector.inferAgentType(processName: title)
+
+            // Only report panels that look like known agents
+            guard agentType != .unknown else { continue }
+
+            // Read the last 50 lines of viewport text for status inference
+            let lines: [String]
+            if let text = TerminalController.shared.readTerminalTextForSnapshot(
+                terminalPanel: terminalPanel,
+                includeScrollback: false,
+                lineLimit: 50
+            ) {
+                lines = text.components(separatedBy: .newlines)
+            } else {
+                lines = []
+            }
+
+            let status = AgentDetector.inferStatus(from: lines)
+
+            agents.append(DetectedAgent(
+                panelId: terminalPanel.id.uuidString,
+                paneId: nil,
+                title: title,
+                agentType: agentType.rawValue,
+                status: status.rawValue
+            ))
+        }
+        return agents
+    }
+
     /// Tear down all panels in this workspace, freeing their Ghostty surfaces.
     /// Called before the workspace is removed from TabManager to ensure child
     /// processes receive SIGHUP even if ARC deallocation is delayed.
@@ -8036,6 +8224,11 @@ final class Workspace: Identifiable, ObservableObject {
         terminalInheritanceFontPointsByPanelId.removeAll(keepingCapacity: false)
         lastTerminalConfigInheritancePanelId = nil
         lastTerminalConfigInheritanceFontPoints = nil
+
+        for observer in kanbanNotificationObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        kanbanNotificationObservers.removeAll()
     }
 
     /// Close a panel.
