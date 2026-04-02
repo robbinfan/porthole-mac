@@ -55,6 +55,26 @@ struct PanelContentView: View {
                     onRequestPanelFocus: onRequestPanelFocus
                 )
             }
+        case .gitlab:
+            if let gitlabPanel = panel as? GitLabPanel {
+                GitLabPanelView(
+                    panel: gitlabPanel,
+                    isFocused: isFocused,
+                    isVisibleInUI: isVisibleInUI,
+                    portalPriority: portalPriority,
+                    onRequestPanelFocus: onRequestPanelFocus
+                )
+            }
+        case .kanban:
+            if let kanbanPanel = panel as? KanbanPanel {
+                KanbanPanelView(
+                    panel: kanbanPanel,
+                    isFocused: isFocused,
+                    isVisibleInUI: isVisibleInUI,
+                    portalPriority: portalPriority,
+                    onRequestPanelFocus: onRequestPanelFocus
+                )
+            }
         }
     }
 }

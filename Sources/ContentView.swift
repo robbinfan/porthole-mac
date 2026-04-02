@@ -5071,6 +5071,10 @@ struct ContentView: View {
             return String(localized: "commandPalette.kind.browser", defaultValue: "Browser")
         case .markdown:
             return String(localized: "commandPalette.kind.markdown", defaultValue: "Markdown")
+        case .gitlab:
+            return "GitLab"
+        case .kanban:
+            return "Agents"
         }
     }
 
@@ -5082,6 +5086,10 @@ struct ContentView: View {
             return ["browser", "web", "page"]
         case .markdown:
             return ["markdown", "note", "preview"]
+        case .gitlab:
+            return ["gitlab", "merge", "pipeline", "mr"]
+        case .kanban:
+            return ["kanban", "agent", "status", "claude", "codex"]
         }
     }
 
@@ -11755,6 +11763,40 @@ private struct TabItemView: View, Equatable {
                 .foregroundColor(activeSecondaryColor(0.75))
                 .lineLimit(1)
             }
+
+            // GitLab MR status
+            if let mrStatus = tab.gitlabMRStatus {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(gitlabMRStatusColor(mrStatus))
+                        .frame(width: 8, height: 8)
+                    Text("!\(mrStatus.iid)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(activeSecondaryColor(0.75))
+                    if let pipeline = mrStatus.pipelineStatus {
+                        Text(pipeline.rawValue)
+                            .font(.system(size: 10))
+                            .foregroundColor(activeSecondaryColor(0.6))
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+
+            // Agent indicator
+            if let agent = tab.agentIndicator {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(agent.type == .claude ? Color.purple : Color.green)
+                        .frame(width: 8, height: 8)
+                    Text(agent.type == .claude ? "Claude" : "Codex")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(activeSecondaryColor(0.75))
+                    Text(agent.status.rawValue)
+                        .font(.system(size: 10))
+                        .foregroundColor(activeSecondaryColor(0.6))
+                    Spacer(minLength: 0)
+                }
+            }
         }
         .animation(.easeInOut(duration: 0.2), value: tab.logEntries.count)
         .animation(.easeInOut(duration: 0.2), value: tab.progress != nil)
@@ -12496,6 +12538,17 @@ private struct TabItemView: View, Equatable {
         case .open: return String(localized: "sidebar.pullRequest.statusOpen", defaultValue: "open")
         case .merged: return String(localized: "sidebar.pullRequest.statusMerged", defaultValue: "merged")
         case .closed: return String(localized: "sidebar.pullRequest.statusClosed", defaultValue: "closed")
+        }
+    }
+
+    private func gitlabMRStatusColor(_ status: GitLabMRStatus) -> Color {
+        if let pipeline = status.pipelineStatus, pipeline == .failed {
+            return .red
+        }
+        switch status.status {
+        case .open: return .yellow
+        case .merged: return .green
+        case .closed: return .gray
         }
     }
 
