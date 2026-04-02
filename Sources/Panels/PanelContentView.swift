@@ -55,6 +55,10 @@ struct PanelContentView: View {
                     onRequestPanelFocus: onRequestPanelFocus
                 )
             }
+        case .gitlab:
+            EmptyView()
+        case .kanban:
+            EmptyView()
         }
     }
 }
