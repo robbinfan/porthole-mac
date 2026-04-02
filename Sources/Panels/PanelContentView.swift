@@ -66,7 +66,15 @@ struct PanelContentView: View {
                 )
             }
         case .kanban:
-            EmptyView()
+            if let kanbanPanel = panel as? KanbanPanel {
+                KanbanPanelView(
+                    panel: kanbanPanel,
+                    isFocused: isFocused,
+                    isVisibleInUI: isVisibleInUI,
+                    portalPriority: portalPriority,
+                    onRequestPanelFocus: onRequestPanelFocus
+                )
+            }
         }
     }
 }
