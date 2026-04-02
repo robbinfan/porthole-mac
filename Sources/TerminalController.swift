@@ -2348,6 +2348,11 @@ class TerminalController {
         case "surface.read_text":
             return v2Result(id: id, self.v2SurfaceReadText(params: params))
 
+        // Agents
+        case "agent.list":
+            return v2Result(id: id, self.v2AgentList(params: params))
+        case "agent.status":
+            return v2Result(id: id, self.v2AgentStatus(params: params))
 
 #if DEBUG
         // Debug / test-only
@@ -10417,6 +10422,129 @@ class TerminalController {
 
     private func v2BrowserInputTouch(params _: [String: Any]) -> V2CallResult {
         v2BrowserNotSupported("browser.input_touch", details: "Raw CDP touch injection is unavailable on WKWebView")
+    }
+
+    // MARK: - Agent Detection (Porthole)
+
+    private func v2AgentList(params: [String: Any]) -> V2CallResult {
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return .err(code: "unavailable", message: "TabManager not available", data: nil)
+        }
+
+        var result: V2CallResult = .err(code: "internal_error", message: "Failed to list agents", data: nil)
+        v2MainSync {
+            guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
+                result = .err(code: "not_found", message: "Workspace not found", data: nil)
+                return
+            }
+
+            let agents: [[String: Any]] = ws.panels.values.compactMap { panel in
+                guard let terminalPanel = panel as? TerminalPanel else { return nil }
+                let panelId = terminalPanel.id
+
+                // Read last 50 lines of viewport for status inference
+                let response = readTerminalTextBase64(terminalPanel: terminalPanel, includeScrollback: false, lineLimit: 50)
+                let lines: [String]
+                if response.hasPrefix("OK ") {
+                    let base64 = String(response.dropFirst(3)).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let data = Data(base64Encoded: base64), let text = String(data: data, encoding: .utf8) {
+                        lines = text.components(separatedBy: "\n")
+                    } else {
+                        lines = []
+                    }
+                } else {
+                    lines = []
+                }
+
+                let agentType = AgentDetector.inferAgentType(processName: terminalPanel.displayTitle)
+                let agentStatus = AgentDetector.inferStatus(from: lines)
+
+                guard agentType != .unknown else { return nil }
+
+                let paneId = ws.paneId(forPanelId: panelId)
+                return [
+                    "panel_id": panelId.uuidString,
+                    "panel_ref": v2Ref(kind: .surface, uuid: panelId),
+                    "pane_id": v2OrNull(paneId?.id.uuidString),
+                    "title": ws.panelTitle(panelId: panelId) ?? terminalPanel.displayTitle,
+                    "agent_type": agentType.rawValue,
+                    "status": agentStatus.rawValue
+                ] as [String: Any]
+            }
+
+            let windowId = v2ResolveWindowId(tabManager: tabManager)
+            result = .ok([
+                "workspace_id": ws.id.uuidString,
+                "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id),
+                "window_id": v2OrNull(windowId?.uuidString),
+                "window_ref": v2Ref(kind: .window, uuid: windowId),
+                "agents": agents
+            ])
+        }
+        return result
+    }
+
+    private func v2AgentStatus(params: [String: Any]) -> V2CallResult {
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return .err(code: "unavailable", message: "TabManager not available", data: nil)
+        }
+
+        var result: V2CallResult = .err(code: "internal_error", message: "Failed to get agent status", data: nil)
+        v2MainSync {
+            guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
+                result = .err(code: "not_found", message: "Workspace not found", data: nil)
+                return
+            }
+
+            let surfaceId: UUID?
+            if params["surface_id"] != nil {
+                surfaceId = v2UUID(params, "surface_id")
+            } else {
+                surfaceId = ws.focusedPanelId
+            }
+
+            guard let surfaceId else {
+                result = .err(code: "not_found", message: "No surface specified or focused", data: nil)
+                return
+            }
+
+            guard let terminalPanel = ws.terminalPanel(for: surfaceId) else {
+                result = .err(code: "invalid_params", message: "Surface is not a terminal", data: ["surface_id": surfaceId.uuidString])
+                return
+            }
+
+            let response = readTerminalTextBase64(terminalPanel: terminalPanel, includeScrollback: false, lineLimit: 50)
+            let lines: [String]
+            if response.hasPrefix("OK ") {
+                let base64 = String(response.dropFirst(3)).trimmingCharacters(in: .whitespacesAndNewlines)
+                if let data = Data(base64Encoded: base64), let text = String(data: data, encoding: .utf8) {
+                    lines = text.components(separatedBy: "\n")
+                } else {
+                    lines = []
+                }
+            } else {
+                lines = []
+            }
+
+            let agentType = AgentDetector.inferAgentType(processName: terminalPanel.displayTitle)
+            let agentStatus = AgentDetector.inferStatus(from: lines)
+            let paneId = ws.paneId(forPanelId: surfaceId)
+            let windowId = v2ResolveWindowId(tabManager: tabManager)
+
+            result = .ok([
+                "panel_id": surfaceId.uuidString,
+                "panel_ref": v2Ref(kind: .surface, uuid: surfaceId),
+                "pane_id": v2OrNull(paneId?.id.uuidString),
+                "title": ws.panelTitle(panelId: surfaceId) ?? terminalPanel.displayTitle,
+                "agent_type": agentType.rawValue,
+                "status": agentStatus.rawValue,
+                "workspace_id": ws.id.uuidString,
+                "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id),
+                "window_id": v2OrNull(windowId?.uuidString),
+                "window_ref": v2Ref(kind: .window, uuid: windowId)
+            ])
+        }
+        return result
     }
 
 #if DEBUG
