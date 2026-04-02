@@ -56,7 +56,15 @@ struct PanelContentView: View {
                 )
             }
         case .gitlab:
-            EmptyView()
+            if let gitlabPanel = panel as? GitLabPanel {
+                GitLabPanelView(
+                    panel: gitlabPanel,
+                    isFocused: isFocused,
+                    isVisibleInUI: isVisibleInUI,
+                    portalPriority: portalPriority,
+                    onRequestPanelFocus: onRequestPanelFocus
+                )
+            }
         case .kanban:
             EmptyView()
         }
