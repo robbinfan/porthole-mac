@@ -4,6 +4,24 @@ import Foundation
 
 struct CmuxConfigFile: Codable, Sendable {
     var commands: [CmuxCommandDefinition]
+    var gitlab: CmuxGitLabConfig?
+    var panels: [String: CmuxPanelConfig]?
+}
+
+struct CmuxGitLabConfig: Codable, Sendable {
+    var project: String
+    var autoMR: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case project
+        case autoMR = "auto_mr"
+    }
+}
+
+struct CmuxPanelConfig: Codable, Sendable {
+    var type: PanelType
+    var position: String?
+    var url: String?
 }
 
 struct CmuxCommandDefinition: Codable, Sendable, Identifiable {
