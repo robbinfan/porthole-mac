@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitLab</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="tab-bar">
+        <button class="tab active" data-tab="mrs">Merge Requests</button>
+        <button class="tab" data-tab="pipelines">Pipelines</button>
+        <button class="tab" data-tab="create-mr">Create MR</button>
+        <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <main id="content">
+        <section id="mrs" class="tab-content active">
+            <div class="loading">Waiting for GitLab config...</div>
+        </section>
+
+        <section id="pipelines" class="tab-content">
+            <div class="loading">Loading pipelines...</div>
+        </section>
+
+        <section id="create-mr" class="tab-content">
+            <form id="create-mr-form">
+                <label>Source Branch
+                    <input type="text" id="mr-source" placeholder="feature/my-branch">
+                </label>
+                <label>Target Branch
+                    <input type="text" id="mr-target" value="main">
+                </label>
+                <label>Title
+                    <input type="text" id="mr-title" placeholder="MR title" required>
+                </label>
+                <label>Description
+                    <textarea id="mr-description" rows="6" placeholder="Describe changes..."></textarea>
+                </label>
+                <button type="submit" class="btn btn-primary">Create Merge Request</button>
+                <div id="create-mr-result"></div>
+            </form>
+        </section>
+
+        <section id="settings" class="tab-content">
+            <form id="settings-form">
+                <label>GitLab Host
+                    <input type="url" id="setting-host" placeholder="https://gitlab.internal.com">
+                </label>
+                <label>Personal Access Token
+                    <input type="password" id="setting-token" placeholder="glpat-...">
+                </label>
+                <button type="submit" class="btn btn-primary">Save</button>
+                <div id="settings-result"></div>
+            </form>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
