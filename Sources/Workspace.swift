@@ -426,6 +426,7 @@ extension Workspace {
         let terminalSnapshot: SessionTerminalPanelSnapshot?
         let browserSnapshot: SessionBrowserPanelSnapshot?
         let markdownSnapshot: SessionMarkdownPanelSnapshot?
+        let diffSnapshot: SessionDiffPanelSnapshot?
         switch panel.panelType {
         case .terminal:
             guard let terminalPanel = panel as? TerminalPanel else { return nil }
@@ -449,6 +450,7 @@ extension Workspace {
             )
             browserSnapshot = nil
             markdownSnapshot = nil
+            diffSnapshot = nil
         case .browser:
             guard let browserPanel = panel as? BrowserPanel else { return nil }
             terminalSnapshot = nil
@@ -463,11 +465,19 @@ extension Workspace {
                 forwardHistoryURLStrings: historySnapshot.forwardHistoryURLStrings
             )
             markdownSnapshot = nil
+            diffSnapshot = nil
         case .markdown:
             guard let markdownPanel = panel as? MarkdownPanel else { return nil }
             terminalSnapshot = nil
             browserSnapshot = nil
             markdownSnapshot = SessionMarkdownPanelSnapshot(filePath: markdownPanel.filePath)
+            diffSnapshot = nil
+        case .diff:
+            guard let diffPanel = panel as? DiffPanel else { return nil }
+            terminalSnapshot = nil
+            browserSnapshot = nil
+            markdownSnapshot = nil
+            diffSnapshot = SessionDiffPanelSnapshot(filePath: diffPanel.filePath)
         }
 
         return SessionPanelSnapshot(
@@ -483,7 +493,8 @@ extension Workspace {
             ttyName: ttyName,
             terminal: terminalSnapshot,
             browser: browserSnapshot,
-            markdown: markdownSnapshot
+            markdown: markdownSnapshot,
+            diff: diffSnapshot
         )
     }
 
@@ -658,6 +669,17 @@ extension Workspace {
             }
             applySessionPanelMetadata(snapshot, toPanelId: markdownPanel.id)
             return markdownPanel.id
+        case .diff:
+            guard let filePath = snapshot.diff?.filePath,
+                  let diffPanel = newDiffSurface(
+                    inPane: paneId,
+                    filePath: filePath,
+                    focus: false
+                  ) else {
+                return nil
+            }
+            applySessionPanelMetadata(snapshot, toPanelId: diffPanel.id)
+            return diffPanel.id
         }
     }
 
@@ -5677,6 +5699,7 @@ final class Workspace: Identifiable, ObservableObject {
         static let terminal = "terminal"
         static let browser = "browser"
         static let markdown = "markdown"
+        static let diff = "diff"
     }
 
     enum PanelShellActivityState: String {
@@ -6185,6 +6208,8 @@ final class Workspace: Identifiable, ObservableObject {
             return SurfaceKind.browser
         case .markdown:
             return SurfaceKind.markdown
+        case .diff:
+            return SurfaceKind.diff
         }
     }
 
@@ -7992,6 +8017,143 @@ final class Workspace: Identifiable, ObservableObject {
 
         installMarkdownPanelSubscription(markdownPanel)
         return markdownPanel
+    }
+
+    // MARK: - Diff Panel
+
+    func diffPanel(for panelId: UUID) -> DiffPanel? {
+        panels[panelId] as? DiffPanel
+    }
+
+    private func installDiffPanelSubscription(_ diffPanel: DiffPanel) {
+        let subscription = diffPanel.$displayTitle
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self, weak diffPanel] newTitle in
+                guard let self,
+                      let diffPanel,
+                      let tabId = self.surfaceIdFromPanelId(diffPanel.id) else { return }
+                guard let existing = self.bonsplitController.tab(tabId) else { return }
+
+                if self.panelTitles[diffPanel.id] != newTitle {
+                    self.panelTitles[diffPanel.id] = newTitle
+                }
+                let resolvedTitle = self.resolvedPanelTitle(panelId: diffPanel.id, fallback: newTitle)
+                guard existing.title != resolvedTitle else { return }
+                self.bonsplitController.updateTab(
+                    tabId,
+                    title: resolvedTitle,
+                    hasCustomTitle: self.panelCustomTitles[diffPanel.id] != nil
+                )
+            }
+        panelSubscriptions[diffPanel.id] = subscription
+    }
+
+    func newDiffSplit(
+        from panelId: UUID,
+        orientation: SplitOrientation,
+        insertFirst: Bool = false,
+        filePath: String,
+        focus: Bool = true
+    ) -> DiffPanel? {
+        guard let sourceTabId = surfaceIdFromPanelId(panelId) else { return nil }
+        var sourcePaneId: PaneID?
+        for paneId in bonsplitController.allPaneIds {
+            let tabs = bonsplitController.tabs(inPane: paneId)
+            if tabs.contains(where: { $0.id == sourceTabId }) {
+                sourcePaneId = paneId
+                break
+            }
+        }
+
+        guard let paneId = sourcePaneId else { return nil }
+
+        let diffPanel = DiffPanel(workspaceId: id, filePath: filePath)
+        panels[diffPanel.id] = diffPanel
+        panelTitles[diffPanel.id] = diffPanel.displayTitle
+
+        let newTab = Bonsplit.Tab(
+            title: diffPanel.displayTitle,
+            icon: diffPanel.displayIcon,
+            kind: SurfaceKind.diff,
+            isDirty: diffPanel.isDirty,
+            isLoading: false,
+            isPinned: false
+        )
+        surfaceIdToPanelId[newTab.id] = diffPanel.id
+        let previousFocusedPanelId = focusedPanelId
+
+        isProgrammaticSplit = true
+        defer { isProgrammaticSplit = false }
+        guard bonsplitController.splitPane(paneId, orientation: orientation, withTab: newTab, insertFirst: insertFirst) != nil else {
+            surfaceIdToPanelId.removeValue(forKey: newTab.id)
+            panels.removeValue(forKey: diffPanel.id)
+            panelTitles.removeValue(forKey: diffPanel.id)
+            return nil
+        }
+
+        let previousHostedView = focusedTerminalPanel?.hostedView
+        if focus {
+            previousHostedView?.suppressReparentFocus()
+            focusPanel(diffPanel.id)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                previousHostedView?.clearSuppressReparentFocus()
+            }
+        } else {
+            preserveFocusAfterNonFocusSplit(
+                preferredPanelId: previousFocusedPanelId,
+                splitPanelId: diffPanel.id,
+                previousHostedView: previousHostedView
+            )
+        }
+
+        installDiffPanelSubscription(diffPanel)
+        return diffPanel
+    }
+
+    @discardableResult
+    func newDiffSurface(
+        inPane paneId: PaneID,
+        filePath: String,
+        focus: Bool? = nil
+    ) -> DiffPanel? {
+        let shouldFocusNewTab = focus ?? (bonsplitController.focusedPaneId == paneId)
+        let previousFocusedPanelId = focusedPanelId
+        let previousHostedView = focusedTerminalPanel?.hostedView
+
+        let diffPanel = DiffPanel(workspaceId: id, filePath: filePath)
+        panels[diffPanel.id] = diffPanel
+        panelTitles[diffPanel.id] = diffPanel.displayTitle
+
+        guard let newTabId = bonsplitController.createTab(
+            title: diffPanel.displayTitle,
+            icon: diffPanel.displayIcon,
+            kind: SurfaceKind.diff,
+            isDirty: diffPanel.isDirty,
+            isLoading: false,
+            isPinned: false,
+            inPane: paneId
+        ) else {
+            panels.removeValue(forKey: diffPanel.id)
+            panelTitles.removeValue(forKey: diffPanel.id)
+            return nil
+        }
+
+        surfaceIdToPanelId[newTabId] = diffPanel.id
+        if shouldFocusNewTab {
+            bonsplitController.focusPane(paneId)
+            bonsplitController.selectTab(newTabId)
+            applyTabSelection(tabId: newTabId, inPane: paneId)
+        } else {
+            preserveFocusAfterNonFocusSplit(
+                preferredPanelId: previousFocusedPanelId,
+                splitPanelId: diffPanel.id,
+                previousHostedView: previousHostedView
+            )
+        }
+
+        installDiffPanelSubscription(diffPanel)
+        return diffPanel
     }
 
     /// Tear down all panels in this workspace, freeing their Ghostty surfaces.
